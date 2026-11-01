@@ -1,12 +1,12 @@
 {
-  "name": "childhood-memories-bot",
+  "name": "movie-world-bot",
   "version": "1.0.0",
-  "description": "Childhood Memories Telegram Bot",
+  "description": "Movie World Telegram Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "telegraf": "^4.16.3"
+    "node-telegram-bot-api": "^0.66.0"
   }
 }
