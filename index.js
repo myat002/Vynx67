@@ -7,7 +7,7 @@ const bot = new TelegramBot(token, { polling: true });
 
 const OWNER_ID = process.env.OWNER_ID;
 const POST_CHANNEL = "@movieworld089";
-const VIDEO_CHANNEL = "@officalstorage";
+const VIDEO_CHANNEL = "@moviestorage09";
 
 const REQUIRED_CHANNELS = [
   "@movieworld089",
