@@ -1,95 +1,161 @@
 const TelegramBot = require("node-telegram-bot-api");
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, {
-  polling: true
-});
+const token = process.env.BOT_TOKEN;
+if (!token) throw new Error("BOT_TOKEN is missing");
+
+const bot = new TelegramBot(token, { polling: true });
 
 const OWNER_ID = process.env.OWNER_ID;
-const POST_CHANNEL = process.env.POST_CHANNEL || "@movieworld089";
-const VIDEO_CHANNEL = process.env.VIDEO_CHANNEL || "@officalstorage";
-const JOIN_CHANNEL = process.env.JOIN_CHANNEL || "@movieworld9085";
+const POST_CHANNEL = "@movieworld089";
+const VIDEO_CHANNEL = "@officalstorage";
+
+const REQUIRED_CHANNELS = [
+  "@movieworld089",
+  "@movieworld9085"
+];
 
 async function checkJoin(userId) {
-  try {
-    const member = await bot.getChatMember(JOIN_CHANNEL, userId);
-    return ["member", "administrator", "creator"].includes(member.status);
-  } catch {
-    return false;
+  for (const channel of REQUIRED_CHANNELS) {
+    try {
+      const member = await bot.getChatMember(channel, userId);
+
+      if (!["member", "administrator", "creator"].includes(member.status)) {
+        return false;
+      }
+    } catch (error) {
+      console.log("Join check error:", error.message);
+      return false;
+    }
   }
+
+  return true;
+}
+
+function joinButtons(videoId) {
+  return {
+    inline_keyboard: [
+      [{
+        text: "JOIN POST CHANNEL",
+        url: "https://t.me/movieworld089"
+      }],
+      [{
+        text: "JOIN MOVIE WORLD",
+        url: "https://t.me/movieworld9085"
+      }],
+      [{
+        text: "VERIFY & WATCH",
+        callback_data: "verify_" + videoId
+      }]
+    ]
+  };
 }
 
 async function sendVideo(chatId, videoId) {
   try {
-    await bot.copyMessage(chatId, VIDEO_CHANNEL, Number(videoId));
+    await bot.copyMessage(
+      chatId,
+      VIDEO_CHANNEL,
+      Number(videoId)
+    );
   } catch (error) {
-    await bot.sendMessage(chatId, "Video ပို့လို့မရပါ။ Admin ကိုဆက်သွယ်ပါ။");
+    console.log("Video error:", error.message);
+    await bot.sendMessage(
+      chatId,
+      "Video ပို့လို့မရပါ။ Admin ကိုဆက်သွယ်ပါ။"
+    );
   }
 }
 
 bot.onText(/\/start(?:\s+video_(\d+))?/, async (msg, match) => {
-  const chatId = msg.chat.id;
   const videoId = match[1];
 
   if (!videoId) {
-    return bot.sendMessage(chatId, "🎬 Welcome to VynxCinema!");
+    return bot.sendMessage(
+      msg.chat.id,
+      "🎬 Welcome to VynxCinema!\nMovie Post ထဲက WATCH NOW ကိုနှိပ်ပါ။"
+    );
   }
 
   const joined = await checkJoin(msg.from.id);
 
   if (!joined) {
-    return bot.sendMessage(chatId, "Video ကြည့်ရန် Channel ကို အရင် Join ပေးပါ။", {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "JOIN CHANNEL", url: `https://t.me/${JOIN_CHANNEL.replace("@", "")}` }],
-          [{ text: "VERIFY", callback_data: `verify_${videoId}` }]
-        ]
-      }
-    });
+    return bot.sendMessage(
+      msg.chat.id,
+      "Video ကြည့်ရန် Channel နှစ်ခုလုံး Join လုပ်ပါ။",
+      { reply_markup: joinButtons(videoId) }
+    );
   }
 
-  sendVideo(chatId, videoId);
+  await sendVideo(msg.chat.id, videoId);
 });
 
 bot.on("callback_query", async (query) => {
   if (!query.data.startsWith("verify_")) return;
 
   const videoId = query.data.replace("verify_", "");
-  const joined = await checkJoin(query.from.id);
 
   await bot.answerCallbackQuery(query.id);
 
-  if (joined) {
-    sendVideo(query.from.id, videoId);
-  } else {
-    bot.sendMessage(query.from.id, "Channel ကို Join လုပ်ပြီးမှ VERIFY နှိပ်ပါ။");
+  const joined = await checkJoin(query.from.id);
+
+  if (!joined) {
+    return bot.sendMessage(
+      query.from.id,
+      "Channel နှစ်ခုလုံး Join လုပ်ပြီး VERIFY ထပ်နှိပ်ပါ။",
+      { reply_markup: joinButtons(videoId) }
+    );
   }
+
+  await sendVideo(query.from.id, videoId);
 });
 
 bot.onText(/\/publish (.+)/, async (msg, match) => {
-  if (String(msg.from.id) !== String(OWNER_ID)) return;
+  if (!OWNER_ID || String(msg.from.id) !== String(OWNER_ID)) {
+    return bot.sendMessage(msg.chat.id, "Admin only.");
+  }
 
   const parts = match[1].split("|").map(x => x.trim());
-  if (parts.length < 2) {
-    return bot.sendMessage(msg.chat.id, "အသုံးပြုပုံ: /publish VIDEO_ID | Movie Title | Description");
+
+  if (parts.length < 2 || !/^\d+$/.test(parts[0])) {
+    return bot.sendMessage(
+      msg.chat.id,
+      "အသုံးပြုပုံ:\n/publish VIDEO_ID | Movie Title | Description"
+    );
   }
 
   const [videoId, title, description = "Watch now"] = parts;
 
-  await bot.sendMessage(POST_CHANNEL,
-    `🎬 ${title}\n\n${description}`,
-    {
-      reply_markup: {
-        inline_keyboard: [[
-          {
-            text: "▶ WATCH NOW",
-            url: `https://t.me/${(await bot.getMe()).username}?start=video_${videoId}`
-          }
-        ]]
-      }
-    }
-  );
+  try {
+    const me = await bot.getMe();
 
-  bot.sendMessage(msg.chat.id, "Movie Post တင်ပြီးပါပြီ။");
+    await bot.sendMessage(
+      POST_CHANNEL,
+      `🎬 ${title}\n\n${description}`,
+      {
+        reply_markup: {
+          inline_keyboard: [[
+            {
+              text: "▶ WATCH NOW",
+              url: `https://t.me/${me.username}?start=video_${videoId}`
+            }
+          ]]
+        }
+      }
+    );
+
+    await bot.sendMessage(msg.chat.id, "✅ Post တင်ပြီးပါပြီ။");
+
+  } catch (error) {
+    console.log(error.message);
+    await bot.sendMessage(
+      msg.chat.id,
+      "Post မတင်နိုင်ပါ။ Bot Admin ခွင့်စစ်ပါ။"
+    );
+  }
+});
+
+bot.on("polling_error", error => {
+  console.log("Polling error:", error.message);
 });
 
 console.log("VynxCinema Bot is running!");
