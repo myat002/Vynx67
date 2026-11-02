@@ -1,3 +1,4 @@
+
 const TelegramBot = require("node-telegram-bot-api");
 
 const token = process.env.BOT_TOKEN;
@@ -59,10 +60,6 @@ async function sendVideo(chatId, videoId) {
     );
   } catch (error) {
     console.log("Video error:", error.message);
-    await bot.sendMessage(
-      chatId,
-      "Video ပို့လို့မရပါ။ Admin ကိုဆက်သွယ်ပါ။"
-    );
   }
 }
 
@@ -159,3 +156,4 @@ bot.on("polling_error", error => {
 });
 
 console.log("VynxCinema Bot is running!");
+  
