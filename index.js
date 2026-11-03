@@ -1,4 +1,3 @@
-
 const TelegramBot = require("node-telegram-bot-api");
 
 const token = process.env.BOT_TOKEN;
@@ -56,7 +55,8 @@ async function sendVideo(chatId, videoId) {
     await bot.copyMessage(
       chatId,
       VIDEO_CHANNEL,
-      Number(videoId)
+      Number(videoId),
+      { protect_content: true }
     );
   } catch (error) {
     console.log("Video error:", error.message);
@@ -156,4 +156,3 @@ bot.on("polling_error", error => {
 });
 
 console.log("VynxCinema Bot is running!");
-  
